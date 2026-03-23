@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1分鐘找出你的睡眠破口</title>
+    <!-- 使用 Chart.js 繪製雷達圖 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-bg: #121212;
+            --card-bg: #1E1E1E;
+            --accent-color: #4FC3F7;
+            --btn-next: #2ecc71;
+            --btn-cta: #FF9800;
+            --text-main: #E0E0E0;
+            --text-dim: #999;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft JhengHei", -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 25px;
+            color: #fff;
+        }
+
+        /* 起始頁表單 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #2A2A2A;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        /* 放大版隱私權勾選框 */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 30px;
+            font-size: 18px;
+            color: var(--text-dim);
+            justify-content: center;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        .checkbox-group a {
+            color: var(--accent-color);
+            text-decoration: underline;
+        }
+
+        /* 按鈕基礎樣式 */
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            text-decoration: none;
+            margin-top: 20px;
+        }
+
+        .btn-primary { background: var(--btn-next); color: white; }
+        .btn-primary:disabled { background: #555; cursor: not-allowed; }
+        .btn-cta { background: var(--btn-cta); color: white; margin-bottom: 20px; }
+
+        /* 問卷題目排版 */
+        .question-box {
+            margin-bottom: 25px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+
+        .question-title {
+            font-size: 16px;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .opt-item {
+            padding: 10px;
+            text-align: center;
+            border: 2px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+        }
+
+        .opt-item.active {
+            border-color: var(--accent-color);
+            background: rgba(79, 195, 247, 0.1);
+            color: var(--accent-color);
+        }
+
+        /* 結果頁樣式調整 - 縮減距離 */
+        .chart-container {
+            width: 100%;
+            max-width: 350px;
+            height: 320px; /* 稍微縮小高度以減少空白感 */
+            margin: 0 auto 10px auto; /* 減少底部邊距 */
+        }
+
+        .result-header {
+            text-align: center;
+            margin-bottom: 10px; /* 減少標題下方的空白 */
+        }
+
+        .result-type-item {
+            margin-bottom: 5px; /* 減少同分項目之間的間距 */
+        }
+
+        .result-type-name {
+            font-size: 32px;
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+
+        .result-type-desc {
+            font-size: 18px;
+            color: var(--accent-color);
+            margin-top: 2px;
+        }
+
+        .solution-card {
+            background: #2A2A2A;
+            padding: 20px;
+            border-radius: 12px;
+            line-height: 1.7;
+            margin-bottom: 25px;
+            white-space: pre-line;
+            text-align: left;
+            font-size: 15px;
+        }
+
+        /* 下方兩張導外圖片排版 (image-links) */
+        .image-links {
+            display: flex;
+            flex-direction: column; /* 手機端：垂直 */
+            gap: 12px;
+            width: 100%;
+        }
+
+        .image-item {
+            flex: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            display: block;
+            background: #333;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .image-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* 自定義彈窗 (Modal) */
+        #messageBox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #2c2c2c;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 320px;
+            width: 85%;
+            text-align: center;
+            border: 1px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .modal-text {
+            margin-bottom: 25px;
+            font-size: 17px;
+            line-height: 1.6;
+        }
+        .modal-btn {
+            background: var(--accent-color);
+            color: #000;
+            padding: 12px 30px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* PC端響應式修正：圖片並列 */
+        @media (min-width: 600px) {
+            .image-links {
+                flex-direction: row;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 起始頁 -->
+    <div id="startPage" class="page active">
+        <h1>1分鐘找出你的睡眠破口</h1>
+        <div class="form-group">
+            <label>您的生理性別</label>
+            <select id="userGender">
+                <option value="生理男">生理男</option>
+                <option value="生理女">生理女</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>您的年齡層</label>
+            <select id="userAge">
+                <option value="30歲以下">30歲以下</option>
+                <option value="30-39歲">30-39歲</option>
+                <option value="40-49歲">40-49歲</option>
+                <option value="50-59歲">50-59歲</option>
+                <option value="60歲以上">60歲以上</option>
+            </select>
+        </div>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="privacyCheck">
+            <label for="privacyCheck">
+                我同意 <a href="https://www.best-sound.net/pages/privacy"target="_blank">隱私權政策</a>
+            </label>
+        </div>
+
+        <button class="btn btn-primary" id="startBtn" disabled>開始檢測</button>
+    </div>
+
+    <!-- 問卷頁：一次列出 12 題 -->
+    <div id="quizPage" class="page">
+        <h1>1分鐘找出你的睡眠破口</h1>
+        <div id="allQuestionsContainer"></div>
+        <button class="btn btn-primary" id="submitBtn">送出測驗分析結果</button>
+    </div>
+
+    <!-- 結果頁 -->
+    <div id="resultPage" class="page">
+        <h1>檢測結果</h1>
+        <div class="result-header" id="resHeader">
+            <!-- 動態插入標題與說明 -->
+        </div>
+
+        <div class="chart-container">
+            <canvas id="radarChart"></canvas>
+        </div>
+
+        <div id="resSolution" class="solution-card"></div>
+
+        <a href="https://sleepbest.pse.is/8urst2" target="_blank" class="btn btn-cta">立即預約服務</a>
+
+        <!-- 兩張圖片區域 -->
+        <div class="image-links">
+            <a href="https://sleepbest.pse.is/8uy7j5" target="_blank" class="image-item">
+                <img src="https://cdn-next.cybassets.com/s/files/16976/ckeditor/pictures/content_ecefb473-78f5-4662-82ec-7ed973fb187e.png" alt="圖片1">
+            </a>
+            <a href="https://best-sound.pse.is/8uyes4/" target="_blank" class="image-item">
+                <img src="https://cdn-next.cybassets.com/s/files/16976/ckeditor/pictures/content_8e9dc8a7-c53f-4f3a-8f1a-414bc4d8584e.png" alt="圖片2">
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 自定義提示框 -->
+<div id="messageBox">
+    <div class="modal-content">
+        <div class="modal-text" id="modalText">請完成所有題目再送出</div>
+        <button class="modal-btn" onclick="closeMessage()">我知道了</button>
+    </div>
+</div>
+
+<script>
+    // 您部署的 Google Apps Script 網址
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwKSx8zzeCaMIC5qOEyeOZuElAX78dE0obEEvg9uoVhVOucK42bgcwS6TFFNPux8cRH/exec"; 
+
+    // 睡眠數據庫
+    const categories = [
+        {
+            id: 'snore',
+            name: '打呼型',
+            desc: '缺氧與疲勞',
+            questions: [
+                { id: 1, text: 'Q1. 睡覺容易打鼾' },
+                { id: 2, text: 'Q2. 頸圍大於40公分' },
+                { id: 3, text: 'Q3. 曾有人發現睡覺時有停止呼吸現象' }
+            ],
+            solution: '【打呼型】\n您的夜間修復力正在因為『缺氧』而大量流失，難怪白天總是精神不濟。需要穩定的氣流支撐（正壓呼吸器），打通夜間修復的黃金通道。'
+        },
+        {
+            id: 'light',
+            name: '淺眠型',
+            desc: '神經緊繃與敏感',
+            questions: [
+                { id: 4, text: 'Q4. 一點風吹草動就會把你吵醒' },
+                { id: 5, text: 'Q5. 只要換個環境，就容易整晚睡不著' },
+                { id: 6, text: 'Q6. 原本算好睡，但常被伴侶的鼾聲吵醒' }
+            ],
+            solution: '【淺眠型】\n您的神經太過緊繃，大腦缺乏安全感。需要建立物理性的防護結界，強迫大腦關機，降低對環境的敏感度。'
+        },
+        {
+            id: 'noise',
+            name: '噪音干擾型',
+            desc: '受制於外在環境的被動失眠',
+            questions: [
+                { id: 7, text: 'Q7. 常被外在環境音打擾(如汽機車、鄰居說話聲)' },
+                { id: 8, text: 'Q8. 嘗試過耳塞，但覺得不舒服' },
+                { id: 9, text: 'Q9. 對聲音特別敏感，即使不大聲也會影響入睡' }
+            ],
+            solution: '【噪音干擾型】\n您的睡眠品質是被外在不可控的噪音『被動剝奪』的。既然無法改變外在環境，就必須改變接收端，利用降噪工具奪回睡眠主導權。'
+        },
+        {
+            id: 'wake',
+            name: '夜醒型',
+            desc: '睡眠中斷與碎片化',
+            questions: [
+                { id: 10, text: 'Q10. 通常能順利入睡，但半夜會無故醒來多次' },
+                { id: 11, text: 'Q11. 睡眠時間碎片化，就算時數睡得夠，隔天還是累' },
+                { id: 12, text: 'Q12. 半夜醒來後，常需要一段時間才能再次入睡' }
+            ],
+            solution: '【夜醒型】\n您的睡眠處於碎片化狀態，這可能是隱性睡眠呼吸中止症導致的微覺醒，透過專業儀器與數據檢測找出夜醒真兇'
+        }
+    ];
+
+    let userAnswers = {}; 
+
+    // 起始頁勾選邏輯
+    const privacyCheck = document.getElementById('privacyCheck');
+    const startBtn = document.getElementById('startBtn');
+    privacyCheck.addEventListener('change', () => { 
+        startBtn.disabled = !privacyCheck.checked; 
+    });
+
+    startBtn.addEventListener('click', () => {
+        showPage('quizPage');
+        renderQuestions();
+    });
+
+    // 渲染 12 道題目 (無分類大標)
+    function renderQuestions() {
+        const container = document.getElementById('allQuestionsContainer');
+        container.innerHTML = '';
+        categories.forEach(cat => {
+            cat.questions.forEach(q => {
+                const qBox = document.createElement('div');
+                qBox.className = 'question-box';
+                qBox.innerHTML = `
+                    <div class="question-title">${q.text}</div>
+                    <div class="options-grid">
+                        <div class="opt-item" onclick="selectOption(${q.id}, 0, this)">沒有</div>
+                        <div class="opt-item" onclick="selectOption(${q.id}, 1, this)">偶爾</div>
+                        <div class="opt-item" onclick="selectOption(${q.id}, 2, this)">經常</div>
+                    </div>
+                `;
+                container.appendChild(qBox);
+            });
+        });
+    }
+
+    // 處理選取選項
+    window.selectOption = (qId, score, el) => {
+        const parent = el.parentElement;
+        Array.from(parent.children).forEach(child => child.classList.remove('active'));
+        el.classList.add('active');
+        userAnswers[qId] = score;
+    };
+
+    // 彈窗顯示與關閉
+    function showMessage(text) {
+        document.getElementById('modalText').innerText = text;
+        document.getElementById('messageBox').style.display = 'flex';
+    }
+    function closeMessage() {
+        document.getElementById('messageBox').style.display = 'none';
+    }
+
+    // 提交問卷並發送 Google Sheet
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        if (Object.keys(userAnswers).length < 12) {
+            showMessage('為了分析精準度，請完成所有 12 道題目再送出。');
+            return;
+        }
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = "資料分析中...";
+
+        // 分數計算
+        let catScores = { snore: 0, light: 0, noise: 0, wake: 0 };
+        categories.forEach(cat => {
+            cat.questions.forEach(q => {
+                catScores[cat.id] += userAnswers[q.id] || 0;
+            });
+        });
+
+        // 判定結果
+        const maxScore = Math.max(...Object.values(catScores));
+        const topCategories = categories.filter(cat => catScores[cat.id] === maxScore);
+        const resultString = topCategories.map(c => c.name).join(' & ');
+
+        // 準備 Google Sheet 資料 (時間戳記排第一)
+        const recordData = {
+            timestamp: new Date().toLocaleString('zh-TW', { hour12: false }),
+            gender: document.getElementById('userGender').value,
+            age: document.getElementById('userAge').value,
+            result: resultString
+        };
+
+        // 發送 API
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(recordData)
+            });
+        } catch (e) { console.error("Sheet Sync Failed", e); }
+
+        showResult(catScores, topCategories);
+    });
+
+    function showResult(catScores, topCategories) {
+        showPage('resultPage');
+
+        // 更新結果大標題與副說明
+        const headerEl = document.getElementById('resHeader');
+        headerEl.innerHTML = '';
+        topCategories.forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'result-type-item';
+            div.innerHTML = `
+                <div class="result-type-name">${c.name}</div>
+                <div class="result-type-desc">${c.desc}</div>
+            `;
+            headerEl.appendChild(div);
+        });
+
+        // 更新解方文字
+        document.getElementById('resSolution').innerText = topCategories.map(c => c.solution).join('\n\n---\n\n');
+
+        // 繪製四邊形雷達圖
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['打呼型', '淺眠型', '噪音型', '夜醒型'],
+                datasets: [{
+                    data: [catScores.snore, catScores.light, catScores.noise, catScores.wake],
+                    backgroundColor: 'rgba(79,195,247,0.4)',
+                    borderColor: '#4FC3F7',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#fff',
+                    pointRadius: 3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 5,
+                        bottom: 5
+                    }
+                },
+                scales: {
+                    r: {
+                        min: 0, max: 6,
+                        ticks: { display: false, stepSize: 2 },
+                        grid: { color: '#333' },
+                        angleLines: { color: '#333' },
+                        pointLabels: { 
+                            color: '#AAA', 
+                            font: { size: 13, weight: 'bold' },
+                            padding: 10
+                        }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+</script>
+
+</body>
+</html>
