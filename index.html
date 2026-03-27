@@ -163,21 +163,14 @@
             color: var(--accent-color);
         }
 
-        /* 結果頁樣式調整 - 縮減距離 */
-        .chart-container {
-            width: 100%;
-            max-width: 350px;
-            height: 320px; /* 稍微縮小高度以減少空白感 */
-            margin: 0 auto 10px auto; /* 減少底部邊距 */
-        }
-
+        /* 結果頁樣式優化 - 緊湊排版 */
         .result-header {
             text-align: center;
-            margin-bottom: 10px; /* 減少標題下方的空白 */
+            margin-bottom: 10px; 
         }
 
         .result-type-item {
-            margin-bottom: 5px; /* 減少同分項目之間的間距 */
+            margin-bottom: 5px;
         }
 
         .result-type-name {
@@ -192,6 +185,13 @@
             margin-top: 2px;
         }
 
+        .chart-container {
+            width: 100%;
+            max-width: 350px;
+            height: 300px; 
+            margin: 0 auto 10px auto; 
+        }
+
         .solution-card {
             background: #2A2A2A;
             padding: 20px;
@@ -203,10 +203,10 @@
             font-size: 15px;
         }
 
-        /* 下方兩張導外圖片排版 (image-links) */
+        /* 兩張圖片區域 */
         .image-links {
             display: flex;
-            flex-direction: column; /* 手機端：垂直 */
+            flex-direction: column;
             gap: 12px;
             width: 100%;
         }
@@ -268,7 +268,6 @@
             font-size: 16px;
         }
 
-        /* PC端響應式修正：圖片並列 */
         @media (min-width: 600px) {
             .image-links {
                 flex-direction: row;
@@ -303,18 +302,18 @@
         <div class="checkbox-group">
             <input type="checkbox" id="privacyCheck">
             <label for="privacyCheck">
-                我同意 <a href="https://www.best-sound.net/pages/privacy"target="_blank">隱私權政策</a>
+                我同意 <a href="https://www.best-sound.net/pages/privacy" target="_blank">隱私權政策</a>
             </label>
         </div>
 
         <button class="btn btn-primary" id="startBtn" disabled>開始檢測</button>
     </div>
 
-    <!-- 問卷頁：一次列出 12 題 -->
+    <!-- 問卷頁 -->
     <div id="quizPage" class="page">
         <h1>1分鐘找出你的睡眠破口</h1>
         <div id="allQuestionsContainer"></div>
-        <button class="btn btn-primary" id="submitBtn">送出測驗分析結果</button>
+        <button class="btn btn-primary" id="submitBtn">送出檢測，查看結果</button>
     </div>
 
     <!-- 結果頁 -->
@@ -353,10 +352,8 @@
 </div>
 
 <script>
-    // 您部署的 Google Apps Script 網址
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwKSx8zzeCaMIC5qOEyeOZuElAX78dE0obEEvg9uoVhVOucK42bgcwS6TFFNPux8cRH/exec"; 
 
-    // 睡眠數據庫
     const categories = [
         {
             id: 'snore',
@@ -406,19 +403,15 @@
 
     let userAnswers = {}; 
 
-    // 起始頁勾選邏輯
     const privacyCheck = document.getElementById('privacyCheck');
     const startBtn = document.getElementById('startBtn');
-    privacyCheck.addEventListener('change', () => { 
-        startBtn.disabled = !privacyCheck.checked; 
-    });
+    privacyCheck.addEventListener('change', () => { startBtn.disabled = !privacyCheck.checked; });
 
     startBtn.addEventListener('click', () => {
         showPage('quizPage');
         renderQuestions();
     });
 
-    // 渲染 12 道題目 (無分類大標)
     function renderQuestions() {
         const container = document.getElementById('allQuestionsContainer');
         container.innerHTML = '';
@@ -439,7 +432,6 @@
         });
     }
 
-    // 處理選取選項
     window.selectOption = (qId, score, el) => {
         const parent = el.parentElement;
         Array.from(parent.children).forEach(child => child.classList.remove('active'));
@@ -447,7 +439,6 @@
         userAnswers[qId] = score;
     };
 
-    // 彈窗顯示與關閉
     function showMessage(text) {
         document.getElementById('modalText').innerText = text;
         document.getElementById('messageBox').style.display = 'flex';
@@ -456,7 +447,6 @@
         document.getElementById('messageBox').style.display = 'none';
     }
 
-    // 提交問卷並發送 Google Sheet
     document.getElementById('submitBtn').addEventListener('click', async () => {
         if (Object.keys(userAnswers).length < 12) {
             showMessage('為了分析精準度，請完成所有 12 道題目再送出。');
@@ -467,20 +457,29 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "資料分析中...";
 
-        // 分數計算
-        let catScores = { snore: 0, light: 0, noise: 0, wake: 0 };
+        let catScores = { snore: 0, light: 0, noise: 0, wake: 0, steady: 0 };
+        let totalScore = 0;
         categories.forEach(cat => {
             cat.questions.forEach(q => {
-                catScores[cat.id] += userAnswers[q.id] || 0;
+                const s = userAnswers[q.id] || 0;
+                catScores[cat.id] += s;
+                totalScore += s;
             });
         });
 
-        // 判定結果
-        const maxScore = Math.max(...Object.values(catScores));
-        const topCategories = categories.filter(cat => catScores[cat.id] === maxScore);
-        const resultString = topCategories.map(c => c.name).join(' & ');
+        let resultString = "";
+        let isPerfectSleep = (totalScore === 0);
+        
+        catScores.steady = Math.max(0, 6 - Math.round(totalScore / 2));
 
-        // 準備 Google Sheet 資料 (時間戳記排第一)
+        if (isPerfectSleep) {
+            resultString = "穩睡型";
+        } else {
+            const maxScore = Math.max(catScores.snore, catScores.light, catScores.noise, catScores.wake);
+            const topCategories = categories.filter(cat => catScores[cat.id] === maxScore);
+            resultString = topCategories.map(c => c.name).join(' & ');
+        }
+
         const recordData = {
             timestamp: new Date().toLocaleString('zh-TW', { hour12: false }),
             gender: document.getElementById('userGender').value,
@@ -488,7 +487,6 @@
             result: resultString
         };
 
-        // 發送 API
         try {
             await fetch(GOOGLE_SCRIPT_URL, {
                 method: "POST",
@@ -498,64 +496,62 @@
             });
         } catch (e) { console.error("Sheet Sync Failed", e); }
 
-        showResult(catScores, topCategories);
+        showResult(catScores, isPerfectSleep);
     });
 
-    function showResult(catScores, topCategories) {
+    function showResult(catScores, isPerfectSleep) {
         showPage('resultPage');
-
-        // 更新結果大標題與副說明
         const headerEl = document.getElementById('resHeader');
+        const solEl = document.getElementById('resSolution');
         headerEl.innerHTML = '';
-        topCategories.forEach(c => {
-            const div = document.createElement('div');
-            div.className = 'result-type-item';
-            div.innerHTML = `
-                <div class="result-type-name">${c.name}</div>
-                <div class="result-type-desc">${c.desc}</div>
+
+        if (isPerfectSleep) {
+            headerEl.innerHTML = `
+                <div class="result-type-item">
+                    <div class="result-type-name">穩睡型</div>
+                    <div class="result-type-desc">好眠優等生</div>
+                </div>
             `;
-            headerEl.appendChild(div);
-        });
+            solEl.innerText = "【穩睡型】\n您是好眠優等生，既不會被打鼾打斷節奏，也沒有淺眠、夜醒的煩惱，外界噪音也很難影響到你。這種穩定又優質的睡眠，是身體和精神的最佳充電站，一定要好好維持哦！";
+        } else {
+            const maxScore = Math.max(catScores.snore, catScores.light, catScores.noise, catScores.wake);
+            const topCategories = categories.filter(cat => catScores[cat.id] === maxScore);
+            topCategories.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'result-type-item';
+                div.innerHTML = `
+                    <div class="result-type-name">${c.name}</div>
+                    <div class="result-type-desc">${c.desc}</div>
+                `;
+                headerEl.appendChild(div);
+            });
+            solEl.innerText = topCategories.map(c => c.solution).join('\n\n---\n\n');
+        }
 
-        // 更新解方文字
-        document.getElementById('resSolution').innerText = topCategories.map(c => c.solution).join('\n\n---\n\n');
-
-        // 繪製四邊形雷達圖
         const ctx = document.getElementById('radarChart').getContext('2d');
         new Chart(ctx, {
             type: 'radar',
             data: {
-                labels: ['打呼型', '淺眠型', '噪音型', '夜醒型'],
+                labels: ['打呼型', '淺眠型', '噪音型', '夜醒型', '穩睡型'],
                 datasets: [{
-                    data: [catScores.snore, catScores.light, catScores.noise, catScores.wake],
-                    backgroundColor: 'rgba(79,195,247,0.4)',
+                    data: [catScores.snore, catScores.light, catScores.noise, catScores.wake, catScores.steady],
+                    backgroundColor: 'rgba(79, 195, 247, 0.4)',
                     borderColor: '#4FC3F7',
                     borderWidth: 2.5,
                     pointBackgroundColor: '#fff',
-                    pointRadius: 3,
                     fill: true
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: {
-                    padding: {
-                        top: 5,
-                        bottom: 5
-                    }
-                },
                 scales: {
                     r: {
                         min: 0, max: 6,
                         ticks: { display: false, stepSize: 2 },
-                        grid: { color: '#333' },
-                        angleLines: { color: '#333' },
-                        pointLabels: { 
-                            color: '#AAA', 
-                            font: { size: 13, weight: 'bold' },
-                            padding: 10
-                        }
+                        grid: { color: '#F0F0F0' },
+                        angleLines: { color: '#F0F0F0' },
+                        pointLabels: { color: '#AAA', font: { size: 13, weight: 'bold' } }
                     }
                 },
                 plugins: { legend: { display: false } }
